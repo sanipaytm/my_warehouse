@@ -5,13 +5,14 @@ import os
 from functools import wraps
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'secret123')  # Better security
+app.secret_key = os.environ.get('SECRET_KEY', 'secret123')
 
 # Database path for Render
-DATABASE_PATH = '/tmp/data.db'  # Render uses /tmp for writable storage
+DATABASE_PATH = '/tmp/data.db'
 
 # ---------------- DATABASE ----------------
 def init_db():
+    """Initialize database and create table if not exists"""
     conn = sqlite3.connect(DATABASE_PATH)
     c = conn.cursor()
     c.execute('''
@@ -24,10 +25,12 @@ def init_db():
     ''')
     conn.commit()
     conn.close()
+    print("Database initialized successfully!")
 
 def get_db():
+    """Get database connection"""
     conn = sqlite3.connect(DATABASE_PATH)
-    conn.row_factory = sqlite3.Row  # Better column access
+    conn.row_factory = sqlite3.Row
     return conn
 
 # Login decorator
@@ -69,11 +72,13 @@ def home():
     conn = get_db()
     c = conn.cursor()
     
-    c.execute("SELECT * FROM store ORDER BY id DESC")  # Show latest first
+    c.execute("SELECT * FROM store ORDER BY id DESC")
     data = c.fetchall()
     
     c.execute("SELECT SUM(qty) FROM store")
-    total = c.fetchone()[0] or 0
+    total = c.fetchone()[0]
+    if total is None:
+        total = 0
     
     conn.close()
     
@@ -151,14 +156,16 @@ def export():
     conn.close()
     
     # Create Excel file
-    file_path = '/tmp/data_export.xlsx'
+    file_path = '/tmp/warehouse_data.xlsx'
     df.to_excel(file_path, index=False, engine='openpyxl')
     
     return send_file(file_path, 
                     as_attachment=True, 
                     download_name='warehouse_data.xlsx')
 
+# Initialize database when app starts
+init_db()
+
 # ---------------- RUN ----------------
 if __name__ == '__main__':
-    init_db()
     app.run(host='0.0.0.0', port=5000, debug=True)
